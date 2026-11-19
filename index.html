@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
+    <title>Cash Pickup Salary Ledger</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div class="container">
+        <header class="page-header">
+          <div class="page-header-row">
+            <div>
+              <p class="eyebrow" data-i18n="companyCashLedger">Company Cash Ledger</p>
+              <h1 data-i18n="cashPickupSalaryTracker">Cash Pickup Salary Tracker</h1>
+            </div>
+
+            <div class="header-actions">
+              <label class="language-picker" for="languageSelect">
+                <span data-i18n="languageLabel">Language</span>
+                <select id="languageSelect" aria-label="Select language">
+                  <option value="en">English</option>
+                  <option value="pt">Português</option>
+                  <option value="fa">فارسی</option>
+                </select>
+              </label>
+              <button id="nightModeBtn" class="secondary-btn" type="button" data-i18n="nightMode">Night Mode</button>
+              <button id="fullscreenBtn" class="secondary-btn" type="button" data-i18n="fullScreen">Full Screen</button>
+              <button id="exportPdfBtn" class="secondary-btn export-btn" type="button" data-i18n="exportPdf">Export PDF</button>
+              <button id="exportPngBtn" class="primary-btn export-btn" type="button" data-i18n="exportPng">Export PNG</button>
+            </div>
+          </div>
+        </header>
+
+        <main>
+          <section class="panel">
+            <h2 data-i18n="addCashPickup">Add Cash Pickup</h2>
+            <form id="pickupForm">
+              <div class="form-grid">
+                <label>
+                  <span data-i18n="dateLabel">Date</span>
+                  <input type="date" id="dateInput" required />
+                </label>
+
+                <label>
+                  <span data-i18n="timeLabel">Time</span>
+                  <input type="time" id="timeInput" required />
+                </label>
+
+                <label>
+                  <span data-i18n="amountLabel">Amount</span>
+                  <input type="number" id="amountInput" min="0" step="0.01" placeholder="0.00" required />
+                </label>
+
+                <label>
+                  <span data-i18n="payerLabel">Payer</span>
+                  <input type="text" id="payerInput" data-i18n-placeholder="payerPlaceholder" placeholder="Who gave you the money" required />
+                </label>
+
+                <label>
+                  <span data-i18n="receiverLabel">Receiver</span>
+                  <input type="text" id="receiverInput" value="Your Name" required />
+                </label>
+
+                <label class="full-width">
+                  <span data-i18n="noteLabel">Note</span>
+                  <textarea id="noteInput" rows="3" data-i18n-placeholder="notePlaceholder" placeholder="Optional details"></textarea>
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button id="submitPickupBtn" type="submit" class="primary-btn" data-i18n="saveCashPickup">Save Cash Pickup</button>
+                <button id="cancelEditBtn" type="button" class="secondary-btn" hidden data-i18n="cancelEdit">Cancel Edit</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <h2 data-i18n="monthlySalaryTitle">Monthly Salary</h2>
+            <div class="form-grid compact-grid">
+              <label>
+                <span data-i18n="monthlySalaryField">Monthly Salary</span>
+                <input type="number" id="monthlySalaryInput" min="0" step="0.01" value="2500" />
+              </label>
+
+              <label>
+                <span data-i18n="selectMonthField">Select Month</span>
+                <input type="month" id="salaryMonthInput" />
+              </label>
+            </div>
+          </section>
+
+          <section class="summary-grid" id="summaryCards">
+            <article class="summary-card">
+              <span class="label" data-i18n="summaryMonthlySalary">Monthly Salary</span>
+              <strong id="monthlySalaryDisplay">$0.00</strong>
+            </article>
+
+            <article class="summary-card">
+              <span class="label" data-i18n="summaryDailyIncome">Daily Income</span>
+              <strong id="dailyIncomeDisplay">$0.00</strong>
+            </article>
+
+            <article class="summary-card accent">
+              <span class="label" data-i18n="summaryCashPickups">Cash Pickups</span>
+              <strong id="cashPickupsDisplay">$0.00</strong>
+            </article>
+
+            <article class="summary-card danger">
+              <span class="label" data-i18n="summarySalaryRemaining">Salary Remaining</span>
+              <strong id="salaryRemainingDisplay">$0.00</strong>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="table-header">
+              <h2 data-i18n="cashPickupRecords">Cash Pickup Records</h2>
+              <button id="clearAllBtn" class="secondary-btn" type="button" data-i18n="clearAll">Clear All</button>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="tableDate">Date</th>
+                    <th data-i18n="tableTime">Time</th>
+                    <th data-i18n="tableAmount">Amount</th>
+                    <th data-i18n="tablePayer">Payer</th>
+                    <th data-i18n="tableReceiver">Receiver</th>
+                    <th data-i18n="tableNote">Note</th>
+                    <th data-i18n="tableAction">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="recordTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
