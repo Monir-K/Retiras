@@ -672,7 +672,7 @@ function initializeForm() {
   timeInput.value = getCurrentTimeString();
 
   const settings = getSettings();
-  salaryInput.value = settings.salary || 2500;
+  salaryInput.value = settings.salary ?? 2500;
   monthInput.value = settings.selectedMonth || getDefaultMonthValue();
 
   if (!monthInput.value) {
