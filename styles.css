@@ -1,15 +1,18 @@
 :root {
-  --bg: #f4f7fb;
+  --bg: #f1f1f1;
   --panel: #ffffff;
-  --primary: #1f6feb;
-  --primary-dark: #174ea6;
-  --secondary: #edf4ff;
-  --text: #1b2430;
-  --muted: #627086;
-  --border: #dfe7f3;
-  --success: #149c66;
-  --danger: #d64545;
-  --shadow: 0 12px 30px rgba(28, 51, 84, 0.08);
+  --primary: #111111;
+  --primary-text: #ffffff;
+  --primary-dark: #111111;
+  --secondary: #e5e5e5;
+  --text: #111111;
+  --muted: #666666;
+  --border: #cccccc;
+  --success: #444444;
+  --danger: #222222;
+  --focus: rgba(0, 0, 0, 0.2);
+  --hover: rgba(0, 0, 0, 0.04);
+  --shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
   --card-soft: rgba(255, 255, 255, 0.96);
 }
 
@@ -25,38 +28,41 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: Arial, sans-serif;
-  background: linear-gradient(180deg, rgba(247, 249, 252, 0.72) 0%, rgba(238, 244, 251, 0.84) 100%), url("assets/cash-ledger-bg.jpg") center / cover fixed;
+  background: linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%) fixed;
   color: var(--text);
   transition: background 0.2s ease, color 0.2s ease;
 }
 
 body.night-mode {
-  --bg: #09111c;
-  --panel: #111c2e;
-  --primary: #74a9ff;
-  --primary-dark: #dfeaff;
-  --secondary: #1c2c44;
-  --text: #edf4ff;
-  --muted: #a9bad6;
-  --border: #27364d;
-  --success: #62d1a1;
-  --danger: #ff8f8f;
-  --shadow: 0 18px 36px rgba(4, 10, 20, 0.42);
-  --card-soft: rgba(17, 28, 46, 0.96);
-  background: linear-gradient(180deg, rgba(9, 17, 28, 0.88) 0%, rgba(16, 28, 45, 0.92) 100%), url("assets/cash-ledger-bg.jpg") center / cover fixed;
+  --bg: #050505;
+  --panel: #151515;
+  --primary: #f2f2f2;
+  --primary-text: #111111;
+  --primary-dark: #ffffff;
+  --secondary: #292929;
+  --text: #f2f2f2;
+  --muted: #aaaaaa;
+  --border: #3d3d3d;
+  --success: #d0d0d0;
+  --danger: #eeeeee;
+  --focus: rgba(255, 255, 255, 0.3);
+  --hover: rgba(255, 255, 255, 0.06);
+  --shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+  --card-soft: rgba(23, 23, 23, 0.96);
+  background: linear-gradient(180deg, #050505 0%, #111111 100%) fixed;
 }
 
 .app-shell {
   width: 80%;
   max-width: 1100px;
   margin: 0 auto;
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.48);
   border-radius: 24px;
   box-shadow: var(--shadow);
 }
 
 body.night-mode .app-shell {
-  background: rgba(9, 17, 28, 0.42);
+  background: rgba(0, 0, 0, 0.48);
 }
 
 .container {
@@ -166,7 +172,7 @@ textarea {
 
 input:focus,
 textarea:focus {
-  outline: 2px solid rgba(31, 111, 235, 0.2);
+  outline: 2px solid var(--focus);
   border-color: var(--primary);
 }
 
@@ -188,7 +194,7 @@ textarea:focus {
 .primary-btn {
   margin-top: 18px;
   background: var(--primary);
-  color: white;
+  color: var(--primary-text);
   font-weight: 700;
 }
 
@@ -205,7 +211,7 @@ textarea:focus {
 }
 
 .delete-btn {
-  background: #ffe9e9;
+  background: var(--secondary);
   color: var(--danger);
   font-weight: 700;
 }
@@ -255,13 +261,13 @@ textarea:focus {
 }
 
 .summary-card.accent {
-  border-color: rgba(20, 156, 102, 0.2);
-  background: rgba(20, 156, 102, 0.04);
+  border-color: var(--border);
+  background: var(--card-soft);
 }
 
 .summary-card.danger {
-  border-color: rgba(214, 69, 69, 0.2);
-  background: rgba(214, 69, 69, 0.04);
+  border-color: var(--border);
+  background: var(--card-soft);
 }
 
 .table-header {
@@ -297,7 +303,7 @@ th {
 }
 
 tbody tr:hover {
-  background: rgba(31, 111, 235, 0.04);
+  background: var(--hover);
 }
 
 .empty-state {
@@ -320,7 +326,7 @@ tbody tr:hover {
     width: 80%;
     max-width: 420px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.48);
     border-radius: 28px;
     box-shadow: 0 16px 45px rgba(0, 0, 0, 0.12);
     overflow: hidden;
@@ -488,7 +494,7 @@ tbody tr:hover {
   .panel,
   .summary-card {
     box-shadow: none;
-    border: 1px solid #dfe7f3;
+    border: 1px solid #cccccc;
   }
 
   body.mobile-print-layout .app-shell {
@@ -541,7 +547,7 @@ tbody tr:hover {
   body.mobile-print-layout tbody tr {
     display: block;
     padding: 4px 0;
-    border-bottom: 1px solid #dfe7f3;
+    border-bottom: 1px solid #cccccc;
     break-inside: avoid;
   }
 
@@ -555,7 +561,7 @@ tbody tr:hover {
   }
 
   body.mobile-print-layout tbody td::before {
-    color: #627086;
+    color: #666666;
     font-weight: 700;
     text-align: left;
   }
