@@ -791,3 +791,17 @@ tbody tr:hover {
     transform: none;
   }
 }
+
+@media screen {
+  .auth-intro,
+  .password-hint,
+  .csv-help,
+  .account-bar,
+  .summary-card .label,
+  th,
+  .empty-state {
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+  }
+}
