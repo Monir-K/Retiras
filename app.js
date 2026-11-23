@@ -1,10 +1,20 @@
-const STORAGE_KEY = 'cashPickupLedger_v1';
-const SALARY_SETTINGS_KEY = 'cashPickupSalarySettings_v1';
 const LANGUAGE_KEY = 'cashPickupLanguage_v1';
 
 const translations = {
   en: {
     appTitle: 'Cash Pickup Salary Ledger',
+    authHeading: 'Your private salary ledger',
+    authIntro: 'Create an account to keep your salary and cash pickup records private.',
+    signIn: 'Sign in',
+    signOut: 'Sign out',
+    createAccount: 'Create account',
+    nameLabel: 'Name',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    passwordHint: 'Use at least 10 characters.',
+    signedInAs: 'Signed in as',
+    importCsv: 'Import CSV',
+    csvHelp: 'CSV columns: date, amount, payer. Optional: time, receiver, note. Dates use YYYY-MM-DD.',
     companyCashLedger: 'Company Cash Ledger',
     cashPickupSalaryTracker: 'Cash Pickup Salary Tracker',
     languageLabel: 'Language',
@@ -182,12 +192,35 @@ const exportPdfBtn = document.getElementById('exportPdfBtn');
 const exportPngBtn = document.getElementById('exportPngBtn');
 const nightModeBtn = document.getElementById('nightModeBtn');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+const authShell = document.getElementById('authShell');
+const appShell = document.getElementById('appShell');
+const authForm = document.getElementById('authForm');
+const authNameField = document.getElementById('authNameField');
+const authNameInput = document.getElementById('authNameInput');
+const authEmailInput = document.getElementById('authEmailInput');
+const authPasswordInput = document.getElementById('authPasswordInput');
+const authMessage = document.getElementById('authMessage');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const signInModeBtn = document.getElementById('signInModeBtn');
+const createAccountModeBtn = document.getElementById('createAccountModeBtn');
+const passwordHint = document.getElementById('passwordHint');
+const accountName = document.getElementById('accountName');
+const logoutBtn = document.getElementById('logoutBtn');
+const appStatus = document.getElementById('appStatus');
+const importCsvBtn = document.getElementById('importCsvBtn');
+const csvFileInput = document.getElementById('csvFileInput');
 
 const monthlySalaryDisplay = document.getElementById('monthlySalaryDisplay');
 const dailyIncomeDisplay = document.getElementById('dailyIncomeDisplay');
 const cashPickupsDisplay = document.getElementById('cashPickupsDisplay');
 const salaryRemainingDisplay = document.getElementById('salaryRemainingDisplay');
+let appState = {
+  user: null,
+  records: [],
+  settings: { salary: 2500, selectedMonth: '' },
+};
 let editingRecordId = null;
+let authMode = 'login';
 
 function getCurrentDateString() {
   return new Date().toISOString().split('T')[0];
@@ -204,35 +237,49 @@ function getDefaultMonthValue() {
   return `${year}-${month}`;
 }
 
-function getSettings() {
-  const defaults = {
-    salary: 2500,
-    selectedMonth: getDefaultMonthValue(),
-  };
-
-  try {
-    const saved = JSON.parse(localStorage.getItem(SALARY_SETTINGS_KEY) || '{}');
-    return { ...defaults, ...saved };
-  } catch (error) {
-    return defaults;
-  }
+function getDefaultReceiver() {
+  return appState.user?.name || getTranslation('defaultReceiver');
 }
 
-function saveSettings(settings) {
-  localStorage.setItem(SALARY_SETTINGS_KEY, JSON.stringify(settings));
+function setAppNotice(message = '') {
+  appStatus.textContent = message;
+}
+
+async function apiRequest(url, options = {}) {
+  const headers = { Accept: 'application/json', ...(options.headers || {}) };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401 && appState.user && !['/api/login', '/api/register'].includes(url)) {
+      showAuthentication('Your session expired. Please sign in again.');
+    }
+    throw new Error(payload.error || 'The request could not be completed.');
+  }
+  return payload;
+}
+
+function getSettings() {
+  return {
+    salary: Number(appState.settings.salary) || 0,
+    selectedMonth: appState.settings.selectedMonth || getDefaultMonthValue(),
+  };
+}
+
+async function saveSettings(settings) {
+  appState.settings = { ...settings };
+  return apiRequest('/api/settings', {
+    method: 'PUT',
+    body: JSON.stringify(appState.settings),
+  });
 }
 
 function getRecords() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(saved) ? saved : [];
-  } catch (error) {
-    return [];
-  }
-}
-
-function saveRecords(records) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  return appState.records;
 }
 
 function getCurrentLanguage() {
@@ -243,6 +290,101 @@ function getCurrentLanguage() {
 function saveCurrentLanguage(language) {
   localStorage.setItem(LANGUAGE_KEY, language);
 }
+
+function updateAuthMode() {
+  const registering = authMode === 'register';
+  authNameField.hidden = !registering;
+  authNameInput.required = registering;
+  authPasswordInput.autocomplete = registering ? 'new-password' : 'current-password';
+  passwordHint.hidden = !registering;
+  signInModeBtn.classList.toggle('active', !registering);
+  createAccountModeBtn.classList.toggle('active', registering);
+  signInModeBtn.setAttribute('aria-pressed', String(!registering));
+  createAccountModeBtn.setAttribute('aria-pressed', String(registering));
+  authSubmitBtn.textContent = getTranslation(registering ? 'createAccount' : 'signIn');
+}
+
+function showAuthentication(message = '') {
+  appState = {
+    user: null,
+    records: [],
+    settings: { salary: 2500, selectedMonth: getDefaultMonthValue() },
+  };
+  editingRecordId = null;
+  appShell.hidden = true;
+  authShell.hidden = false;
+  authForm.reset();
+  authMode = 'login';
+  authMessage.textContent = message;
+  updateAuthMode();
+}
+
+function showApplication(payload) {
+  appState = {
+    user: payload.user,
+    records: Array.isArray(payload.records) ? payload.records : [],
+    settings: {
+      salary: 2500,
+      selectedMonth: getDefaultMonthValue(),
+      ...(payload.settings || {}),
+    },
+  };
+  authShell.hidden = true;
+  appShell.hidden = false;
+  accountName.textContent = appState.user.name;
+  authMessage.textContent = '';
+  setAppNotice('');
+  initializeForm();
+}
+
+signInModeBtn.addEventListener('click', () => {
+  authMode = 'login';
+  authMessage.textContent = '';
+  updateAuthMode();
+});
+
+createAccountModeBtn.addEventListener('click', () => {
+  authMode = 'register';
+  authMessage.textContent = '';
+  updateAuthMode();
+});
+
+authForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const registering = authMode === 'register';
+  const requestBody = {
+    email: authEmailInput.value.trim(),
+    password: authPasswordInput.value,
+  };
+  if (registering) requestBody.name = authNameInput.value.trim();
+
+  authSubmitBtn.disabled = true;
+  authMessage.textContent = '';
+  try {
+    const payload = await apiRequest(registering ? '/api/register' : '/api/login', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    showApplication(payload);
+  } catch (error) {
+    authMessage.textContent = error.message;
+  } finally {
+    authSubmitBtn.disabled = false;
+    updateAuthMode();
+  }
+});
+
+logoutBtn.addEventListener('click', async () => {
+  logoutBtn.disabled = true;
+  try {
+    await apiRequest('/api/logout', { method: 'POST' });
+    showAuthentication();
+  } catch (error) {
+    setAppNotice(error.message);
+  } finally {
+    logoutBtn.disabled = false;
+  }
+});
 
 function getTranslation(key, fallback = '') {
   const language = getCurrentLanguage();
@@ -257,22 +399,24 @@ function applyTranslations() {
   const textNodes = document.querySelectorAll('[data-i18n]');
   textNodes.forEach((node) => {
     const key = node.dataset.i18n;
-    if (key && translations[language]?.[key]) {
-      node.textContent = translations[language][key];
+    const translation = translations[language]?.[key] ?? translations.en[key];
+    if (key && translation) {
+      node.textContent = translation;
     }
   });
 
   const placeholderNodes = document.querySelectorAll('[data-i18n-placeholder]');
   placeholderNodes.forEach((node) => {
     const key = node.dataset.i18nPlaceholder;
-    if (key && translations[language]?.[key]) {
-      node.placeholder = translations[language][key];
+    const translation = translations[language]?.[key] ?? translations.en[key];
+    if (key && translation) {
+      node.placeholder = translation;
     }
   });
 
   const defaultReceiver = getTranslation('defaultReceiver');
   if (receiverInput && !receiverInput.dataset.userModified && !receiverInput.value) {
-    receiverInput.value = defaultReceiver;
+    receiverInput.value = getDefaultReceiver() || defaultReceiver;
   }
 
   if (languageSelect) {
@@ -282,6 +426,7 @@ function applyTranslations() {
   const isNightMode = document.body.classList.contains('night-mode');
   nightModeBtn.textContent = isNightMode ? getTranslation('dayMode') : getTranslation('nightMode');
   fullscreenBtn.textContent = document.fullscreenElement ? getTranslation('exitFullScreen') : getTranslation('fullScreen');
+  updateAuthMode();
 }
 
 function formatCurrency(amount) {
@@ -363,11 +508,11 @@ function renderTable() {
     .map(
       (record) => `
         <tr>
-          <td>${record.date}</td>
-          <td>${record.time}</td>
+          <td>${escapeHtml(record.date)}</td>
+          <td>${escapeHtml(record.time)}</td>
           <td>${formatCurrency(record.amount)}</td>
-          <td>${record.payer}</td>
-          <td>${record.receiver}</td>
+          <td>${escapeHtml(record.payer)}</td>
+          <td>${escapeHtml(record.receiver)}</td>
           <td>${record.note ? escapeHtml(record.note) : getTranslation('unavailable')}</td>
           <td>
             <div class="record-actions">
@@ -395,7 +540,7 @@ function render() {
   renderTable();
 }
 
-form.addEventListener('submit', (event) => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const record = {
@@ -413,28 +558,38 @@ form.addEventListener('submit', (event) => {
     return;
   }
 
-  const records = getRecords();
-  if (editingRecordId) {
-    const recordIndex = records.findIndex((savedRecord) => savedRecord.id === editingRecordId);
-    if (recordIndex === -1) {
-      cancelRecordEdit();
-      return;
+  try {
+    const wasEditing = Boolean(editingRecordId);
+    const response = await apiRequest(
+      wasEditing ? `/api/records/${encodeURIComponent(editingRecordId)}` : '/api/records',
+      {
+        method: wasEditing ? 'PUT' : 'POST',
+        body: JSON.stringify(record),
+      },
+    );
+    if (wasEditing) {
+      const recordIndex = appState.records.findIndex((savedRecord) => savedRecord.id === editingRecordId);
+      if (recordIndex === -1) {
+        cancelRecordEdit();
+        return;
+      }
+      appState.records[recordIndex] = response.record;
+    } else {
+      appState.records.push(response.record);
     }
-    records[recordIndex] = record;
-  } else {
-    records.push(record);
+    setAppNotice('');
+    resetPickupForm();
+    render();
+  } catch (error) {
+    setAppNotice(error.message);
   }
-  saveRecords(records);
-
-  resetPickupForm();
-  render();
 });
 
 function resetPickupForm() {
   form.reset();
   dateInput.value = getCurrentDateString();
   timeInput.value = getCurrentTimeString();
-  receiverInput.value = getTranslation('defaultReceiver');
+  receiverInput.value = getDefaultReceiver();
   editingRecordId = null;
   submitPickupBtn.textContent = getTranslation('saveCashPickup');
   cancelEditBtn.hidden = true;
@@ -465,7 +620,7 @@ function editRecord(id) {
     monthInput.value = recordMonth;
     const settings = getSettings();
     settings.selectedMonth = recordMonth;
-    saveSettings(settings);
+    saveSettings(settings).catch((error) => setAppNotice(error.message));
     render();
   }
 
@@ -478,25 +633,159 @@ cancelEditBtn.addEventListener('click', cancelRecordEdit);
 salaryInput.addEventListener('input', () => {
   const settings = getSettings();
   settings.salary = Number(salaryInput.value || 0);
-  saveSettings(settings);
+  appState.settings = settings;
   render();
 });
 
-monthInput.addEventListener('input', () => {
+salaryInput.addEventListener('change', () => {
+  const settings = getSettings();
+  saveSettings(settings).catch((error) => setAppNotice(error.message));
+});
+
+monthInput.addEventListener('change', () => {
   const settings = getSettings();
   settings.selectedMonth = monthInput.value || getDefaultMonthValue();
-  saveSettings(settings);
+  saveSettings(settings).catch((error) => setAppNotice(error.message));
   render();
 });
 
-clearAllBtn.addEventListener('click', () => {
+clearAllBtn.addEventListener('click', async () => {
   const confirmed = window.confirm(getTranslation('clearAllConfirm'));
   if (!confirmed) {
     return;
   }
 
-  saveRecords([]);
-  render();
+  try {
+    await apiRequest('/api/records', { method: 'DELETE' });
+    appState.records = [];
+    setAppNotice('');
+    render();
+  } catch (error) {
+    setAppNotice(error.message);
+  }
+});
+
+function parseCsvText(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let insideQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (insideQuotes) {
+      if (character === '"' && text[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else if (character === '"') {
+        insideQuotes = false;
+      } else {
+        field += character;
+      }
+      continue;
+    }
+
+    if (character === '"' && field.length === 0) {
+      insideQuotes = true;
+    } else if (character === ',') {
+      row.push(field);
+      field = '';
+    } else if (character === '\n' || character === '\r') {
+      if (character === '\r' && text[index + 1] === '\n') index += 1;
+      row.push(field);
+      if (row.some((value) => value.trim())) rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += character;
+    }
+  }
+
+  if (insideQuotes) throw new Error('The CSV contains an unfinished quoted field.');
+  row.push(field);
+  if (row.some((value) => value.trim())) rows.push(row);
+  return rows;
+}
+
+function csvDateToIso(value) {
+  const date = String(value || '').trim();
+  let match = date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    const iso = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    const parsed = new Date(`${iso}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : '';
+  }
+  match = date.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (!match) return '';
+  const iso = `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}`;
+  const parsed = new Date(`${iso}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : '';
+}
+
+function csvHeaderIndex(headers, names) {
+  return headers.findIndex((header) => names.includes(header));
+}
+
+async function importCsvFile(file) {
+  if (file.size > 2 * 1024 * 1024) throw new Error('CSV files must be 2 MB or smaller.');
+  const rows = parseCsvText(await file.text());
+  if (rows.length < 2) throw new Error('The CSV needs a header row and at least one record.');
+
+  const headers = rows[0].map((value) => value.trim().replace(/^\uFEFF/, '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const columns = {
+    date: csvHeaderIndex(headers, ['date', 'pickupdate']),
+    time: csvHeaderIndex(headers, ['time', 'pickuptime']),
+    amount: csvHeaderIndex(headers, ['amount', 'value']),
+    payer: csvHeaderIndex(headers, ['payer', 'from', 'paidby']),
+    receiver: csvHeaderIndex(headers, ['receiver', 'to', 'receivedby']),
+    note: csvHeaderIndex(headers, ['note', 'description', 'details']),
+  };
+  if (columns.date < 0 || columns.amount < 0 || columns.payer < 0) {
+    throw new Error('CSV headers must include date, amount, and payer.');
+  }
+
+  const records = [];
+  for (let index = 1; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (!row.some((value) => value.trim())) continue;
+    const cell = (column) => column < 0 ? '' : String(row[column] || '').trim();
+    const date = csvDateToIso(cell(columns.date));
+    const time = cell(columns.time) || '00:00';
+    const amountText = cell(columns.amount).replace(/[$,\s]/g, '');
+    const amount = Number(amountText);
+    const payer = cell(columns.payer);
+    const receiver = cell(columns.receiver) || appState.user.name;
+    const note = cell(columns.note);
+    if (!date) throw new Error(`CSV row ${index + 1}: date must be a real date in YYYY-MM-DD or MM/DD/YYYY format.`);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error(`CSV row ${index + 1}: time must use HH:MM format.`);
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error(`CSV row ${index + 1}: amount must be greater than zero.`);
+    if (!payer) throw new Error(`CSV row ${index + 1}: payer is required.`);
+    records.push({ date, time, amount, payer, receiver, note });
+  }
+  if (!records.length) throw new Error('No record rows were found in the CSV.');
+  if (records.length > 1000) throw new Error('Import up to 1,000 records at a time.');
+  return records;
+}
+
+importCsvBtn.addEventListener('click', () => csvFileInput.click());
+
+csvFileInput.addEventListener('change', async () => {
+  const file = csvFileInput.files?.[0];
+  csvFileInput.value = '';
+  if (!file) return;
+  try {
+    const records = await importCsvFile(file);
+    if (!window.confirm(`Import ${records.length} records from this CSV?`)) return;
+    const result = await apiRequest('/api/records/import', {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    });
+    appState.records.push(...result.records);
+    setAppNotice(`Imported ${result.imported} records.`);
+    render();
+  } catch (error) {
+    setAppNotice(error.message);
+  }
 });
 
 exportPdfBtn.addEventListener('click', () => {
@@ -604,7 +893,7 @@ exportPngBtn.addEventListener('click', () => {
   link.click();
 });
 
-tableBody.addEventListener('click', (event) => {
+tableBody.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action]');
   if (!button) {
     return;
@@ -620,12 +909,17 @@ tableBody.addEventListener('click', (event) => {
     return;
   }
 
-  const records = getRecords().filter((record) => record.id !== id);
-  saveRecords(records);
-  if (editingRecordId === id) {
-    cancelRecordEdit();
+  try {
+    await apiRequest(`/api/records/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    appState.records = appState.records.filter((record) => record.id !== id);
+    if (editingRecordId === id) {
+      cancelRecordEdit();
+    }
+    setAppNotice('');
+    render();
+  } catch (error) {
+    setAppNotice(error.message);
   }
-  render();
 });
 
 function updateNightModeButton() {
@@ -667,9 +961,9 @@ languageSelect.addEventListener('change', (event) => {
 });
 
 function initializeForm() {
-  const today = new Date();
   dateInput.value = getCurrentDateString();
   timeInput.value = getCurrentTimeString();
+  receiverInput.value = getDefaultReceiver();
 
   const settings = getSettings();
   salaryInput.value = settings.salary ?? 2500;
@@ -689,4 +983,20 @@ function initializeForm() {
   render();
 }
 
-initializeForm();
+async function startApplication() {
+  languageSelect.value = getCurrentLanguage();
+  applyTranslations();
+  updateAuthMode();
+  try {
+    const payload = await apiRequest('/api/session');
+    if (payload.user) {
+      showApplication(payload);
+    } else {
+      showAuthentication();
+    }
+  } catch (error) {
+    showAuthentication(`Could not connect to the account server. ${error.message}`);
+  }
+}
+
+startApplication();

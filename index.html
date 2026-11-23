@@ -1,13 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.5, maximum-scale=5, user-scalable=yes, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3f5f8" />
     <title>Cash Pickup Salary Ledger</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <section class="auth-shell" id="authShell" aria-labelledby="authTitle" hidden>
+      <div class="auth-card">
+        <p class="eyebrow" data-i18n="companyCashLedger">Company Cash Ledger</p>
+        <h1 id="authTitle" data-i18n="authHeading">Your private salary ledger</h1>
+        <p class="auth-intro" data-i18n="authIntro">Create an account to keep your salary and cash pickup records private.</p>
+
+        <div class="auth-mode-switch" role="group" aria-label="Account action">
+          <button id="signInModeBtn" class="auth-mode active" type="button" aria-pressed="true" data-i18n="signIn">Sign in</button>
+          <button id="createAccountModeBtn" class="auth-mode" type="button" aria-pressed="false" data-i18n="createAccount">Create account</button>
+        </div>
+
+        <form id="authForm" class="auth-form">
+          <label id="authNameField" hidden>
+            <span data-i18n="nameLabel">Name</span>
+            <input id="authNameInput" type="text" autocomplete="name" maxlength="120" />
+          </label>
+          <label>
+            <span data-i18n="emailLabel">Email</span>
+            <input id="authEmailInput" type="email" autocomplete="username" maxlength="254" required />
+          </label>
+          <label>
+            <span data-i18n="passwordLabel">Password</span>
+            <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="10" maxlength="256" required />
+          </label>
+          <p class="password-hint" id="passwordHint" hidden data-i18n="passwordHint">Use at least 10 characters.</p>
+          <button id="authSubmitBtn" class="primary-btn auth-submit" type="submit" data-i18n="signIn">Sign in</button>
+          <p id="authMessage" class="status-message" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <div class="app-shell" id="appShell" hidden>
       <div class="container">
         <header class="page-header">
           <div class="page-header-row">
@@ -31,7 +63,13 @@
               <button id="exportPngBtn" class="primary-btn export-btn" type="button" data-i18n="exportPng">Export PNG</button>
             </div>
           </div>
+          <div class="account-bar">
+            <span><span data-i18n="signedInAs">Signed in as</span> <strong id="accountName"></strong></span>
+            <button id="logoutBtn" class="secondary-btn" type="button" data-i18n="signOut">Sign out</button>
+          </div>
         </header>
+
+        <p id="appStatus" class="status-message app-status" role="status" aria-live="polite"></p>
 
         <main>
           <section class="panel">
@@ -50,22 +88,22 @@
 
                 <label>
                   <span data-i18n="amountLabel">Amount</span>
-                  <input type="number" id="amountInput" min="0" step="0.01" placeholder="0.00" required />
+                  <input type="number" id="amountInput" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required />
                 </label>
 
                 <label>
                   <span data-i18n="payerLabel">Payer</span>
-                  <input type="text" id="payerInput" data-i18n-placeholder="payerPlaceholder" placeholder="Who gave you the money" required />
+                  <input type="text" id="payerInput" data-i18n-placeholder="payerPlaceholder" placeholder="Who gave you the money" maxlength="200" required />
                 </label>
 
                 <label>
                   <span data-i18n="receiverLabel">Receiver</span>
-                  <input type="text" id="receiverInput" value="Your Name" required />
+                  <input type="text" id="receiverInput" value="Your Name" maxlength="200" required />
                 </label>
 
                 <label class="full-width">
                   <span data-i18n="noteLabel">Note</span>
-                  <textarea id="noteInput" rows="3" data-i18n-placeholder="notePlaceholder" placeholder="Optional details"></textarea>
+                  <textarea id="noteInput" rows="3" maxlength="2000" data-i18n-placeholder="notePlaceholder" placeholder="Optional details"></textarea>
                 </label>
               </div>
 
@@ -91,7 +129,7 @@
             </div>
           </section>
 
-          <section class="summary-grid" id="summaryCards">
+          <section class="summary-grid sticky-summary" id="summaryCards" aria-label="Salary and balance summary">
             <article class="summary-card">
               <span class="label" data-i18n="summaryMonthlySalary">Monthly Salary</span>
               <strong id="monthlySalaryDisplay">$0.00</strong>
@@ -116,8 +154,13 @@
           <section class="panel">
             <div class="table-header">
               <h2 data-i18n="cashPickupRecords">Cash Pickup Records</h2>
-              <button id="clearAllBtn" class="secondary-btn" type="button" data-i18n="clearAll">Clear All</button>
+              <div class="records-actions">
+                <input id="csvFileInput" class="visually-hidden" type="file" accept=".csv,text/csv" />
+                <button id="importCsvBtn" class="secondary-btn" type="button" data-i18n="importCsv">Import CSV</button>
+                <button id="clearAllBtn" class="secondary-btn" type="button" data-i18n="clearAll">Clear All</button>
+              </div>
             </div>
+            <p class="csv-help" data-i18n="csvHelp">CSV columns: date, amount, payer. Optional: time, receiver, note. Dates use YYYY-MM-DD.</p>
 
             <div class="table-wrap">
               <table>
@@ -140,6 +183,6 @@
       </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js" defer></script>
   </body>
 </html>

@@ -1,0 +1,12 @@
+{
+  "name": "retiras",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private multi-user cash pickup salary ledger",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
