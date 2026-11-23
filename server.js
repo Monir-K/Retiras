@@ -8,17 +8,23 @@ const { promisify } = require('node:util');
 
 const scrypt = promisify(crypto.scrypt);
 const PORT = Number(process.env.PORT || 8000);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const SESSION_COOKIE = 'retiras_session';
 const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_IMPORT_ROWS = 1000;
 const DATA_DIR = process.env.RETIRAS_DATA_DIR || path.join(__dirname, 'data');
 const DATABASE_PATH = path.join(DATA_DIR, 'accounts.json');
+const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SUPABASE_SERVER_KEY = process.env.SUPABASE_SERVER_KEY || '';
 const ASSETS_DIR = path.join(__dirname, 'assets');
 const sessions = new Map();
 const authLimits = new Map();
 const dummySalt = Buffer.alloc(16, 73);
+
+if (Boolean(SUPABASE_URL) !== Boolean(SUPABASE_SERVER_KEY)) {
+  throw new Error('Set both SUPABASE_URL and SUPABASE_SERVER_KEY, or leave both unset for local JSON storage.');
+}
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -32,7 +38,7 @@ function defaultMonth() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function loadDatabase() {
+function loadLocalDatabase() {
   fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
   if (!fs.existsSync(DATABASE_PATH)) return { users: [] };
   const parsed = JSON.parse(fs.readFileSync(DATABASE_PATH, 'utf8'));
@@ -42,13 +48,60 @@ function loadDatabase() {
   return parsed;
 }
 
-const database = loadDatabase();
+let database = SUPABASE_URL ? { users: [] } : loadLocalDatabase();
+let persistenceQueue = Promise.resolve();
 
-function persistDatabase() {
-  const temporaryPath = `${DATABASE_PATH}.${process.pid}.tmp`;
-  fs.writeFileSync(temporaryPath, JSON.stringify(database), { mode: 0o600 });
-  fs.renameSync(temporaryPath, DATABASE_PATH);
+function supabaseHeaders() {
+  const headers = {
+    apikey: SUPABASE_SERVER_KEY,
+    'Content-Type': 'application/json',
+  };
+  // New Supabase secret keys are not JWTs and must not be sent as bearer tokens.
+  if (!SUPABASE_SERVER_KEY.startsWith('sb_secret_')) {
+    headers.Authorization = `Bearer ${SUPABASE_SERVER_KEY}`;
+  }
+  return headers;
 }
+
+async function loadHostedDatabase() {
+  const endpoint = `${SUPABASE_URL}/rest/v1/retiras_state?id=eq.main&select=payload`;
+  const response = await fetch(endpoint, { headers: supabaseHeaders() });
+  if (!response.ok) throw new Error(`Supabase database read failed (${response.status}).`);
+  const rows = await response.json();
+  if (!Array.isArray(rows)) throw new Error('Supabase returned an invalid account database response.');
+  if (rows.length === 0) return { users: [] };
+  const payload = rows[0]?.payload;
+  if (!payload || !Array.isArray(payload.users)) {
+    throw new Error('The Supabase account database has an invalid format.');
+  }
+  return payload;
+}
+
+async function persistDatabase() {
+  if (!SUPABASE_URL) {
+    const temporaryPath = `${DATABASE_PATH}.${process.pid}.tmp`;
+    fs.writeFileSync(temporaryPath, JSON.stringify(database), { mode: 0o600 });
+    fs.renameSync(temporaryPath, DATABASE_PATH);
+    return;
+  }
+
+  const payload = JSON.stringify({ id: 'main', payload: database });
+  const write = persistenceQueue.catch(() => {}).then(async () => {
+    const endpoint = `${SUPABASE_URL}/rest/v1/retiras_state?on_conflict=id`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...supabaseHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: payload,
+    });
+    if (!response.ok) throw new Error(`Supabase database write failed (${response.status}).`);
+  });
+  persistenceQueue = write;
+  await write;
+}
+
+const databaseReady = SUPABASE_URL
+  ? loadHostedDatabase().then((loaded) => { database = loaded; })
+  : Promise.resolve();
 
 function securityHeaders() {
   return {
@@ -279,7 +332,7 @@ async function handleApi(request, response, url) {
         records: [],
       };
       database.users.push(user);
-      persistDatabase();
+      await persistDatabase();
       setSession(request, response, user);
       clearAuthRateLimit(request);
       sendJson(response, 201, publicState(user));
@@ -322,7 +375,7 @@ async function handleApi(request, response, url) {
       throw new HttpError(400, 'Enter a valid salary and month.');
     }
     user.settings = { salary, selectedMonth };
-    persistDatabase();
+    await persistDatabase();
     sendJson(response, 200, { settings: user.settings });
     return;
   }
@@ -330,7 +383,7 @@ async function handleApi(request, response, url) {
   if (request.method === 'POST' && pathname === '/api/records') {
     const record = validateRecord(await readJson(request));
     user.records.push(record);
-    persistDatabase();
+    await persistDatabase();
     sendJson(response, 201, { record });
     return;
   }
@@ -351,14 +404,14 @@ async function handleApi(request, response, url) {
       }
     });
     user.records.push(...imported);
-    persistDatabase();
+    await persistDatabase();
     sendJson(response, 201, { records: imported, imported: imported.length });
     return;
   }
 
   if (request.method === 'DELETE' && pathname === '/api/records') {
     user.records = [];
-    persistDatabase();
+    await persistDatabase();
     sendJson(response, 200, { ok: true });
     return;
   }
@@ -370,13 +423,13 @@ async function handleApi(request, response, url) {
     if (index < 0) throw new HttpError(404, 'Record not found in this account.');
     if (request.method === 'DELETE') {
       user.records.splice(index, 1);
-      persistDatabase();
+      await persistDatabase();
       sendJson(response, 200, { ok: true });
       return;
     }
     const record = validateRecord(await readJson(request), recordId);
     user.records[index] = record;
-    persistDatabase();
+    await persistDatabase();
     sendJson(response, 200, { record });
     return;
   }
@@ -434,7 +487,14 @@ const server = http.createServer((request, response) => {
   serveStatic(request, response, url.pathname);
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`Retiras is running at http://${HOST}:${PORT}`);
-  console.log(`Account data is stored outside the public site files in ${DATA_DIR}`);
+databaseReady.then(() => {
+  server.listen(PORT, HOST, () => {
+    console.log(`Retiras is listening on ${HOST}:${PORT}`);
+    console.log(SUPABASE_URL
+      ? 'Account data is stored in the configured Supabase project.'
+      : `Account data is stored outside the public site files in ${DATA_DIR}`);
+  });
+}).catch((error) => {
+  console.error('Retiras could not load its account database:', error.message);
+  process.exitCode = 1;
 });
