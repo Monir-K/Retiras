@@ -214,6 +214,8 @@ const monthlySalaryDisplay = document.getElementById('monthlySalaryDisplay');
 const dailyIncomeDisplay = document.getElementById('dailyIncomeDisplay');
 const cashPickupsDisplay = document.getElementById('cashPickupsDisplay');
 const salaryRemainingDisplay = document.getElementById('salaryRemainingDisplay');
+const summaryCards = document.getElementById('summaryCards');
+const summarySpacer = document.getElementById('summarySpacer');
 let appState = {
   user: null,
   records: [],
@@ -221,6 +223,8 @@ let appState = {
 };
 let editingRecordId = null;
 let authMode = 'login';
+let summaryPinned = false;
+let summaryOriginalTop = 0;
 
 function getCurrentDateString() {
   return new Date().toISOString().split('T')[0];
@@ -311,6 +315,7 @@ function showAuthentication(message = '') {
     settings: { salary: 2500, selectedMonth: getDefaultMonthValue() },
   };
   editingRecordId = null;
+  resetSummaryDock();
   appShell.hidden = true;
   authShell.hidden = false;
   authForm.reset();
@@ -331,6 +336,7 @@ function showApplication(payload) {
   };
   authShell.hidden = true;
   appShell.hidden = false;
+  window.scrollTo(0, 0);
   accountName.textContent = appState.user.name;
   authMessage.textContent = '';
   setAppNotice('');
@@ -538,7 +544,49 @@ function escapeHtml(value) {
 function render() {
   renderSummary();
   renderTable();
+  window.requestAnimationFrame(updateSummaryDock);
 }
+
+function resetSummaryDock() {
+  summaryCards.classList.remove('summary-pinned');
+  summarySpacer.hidden = true;
+  summarySpacer.style.height = '';
+  summaryPinned = false;
+  summaryOriginalTop = 0;
+}
+
+function getSummaryFlowHeight() {
+  const bottomGap = window.matchMedia('(max-width: 768px)').matches ? 16 : 22;
+  return summaryCards.offsetHeight + bottomGap;
+}
+
+function updateSummaryDock() {
+  if (!appState.user || appShell.hidden) {
+    resetSummaryDock();
+    return;
+  }
+
+  if (summaryPinned) {
+    summaryOriginalTop = summarySpacer.getBoundingClientRect().top + window.scrollY;
+    summarySpacer.style.height = `${getSummaryFlowHeight()}px`;
+    if (window.scrollY < summaryOriginalTop) {
+      resetSummaryDock();
+      summaryOriginalTop = summaryCards.getBoundingClientRect().top + window.scrollY;
+    }
+    return;
+  }
+
+  summaryOriginalTop = summaryCards.getBoundingClientRect().top + window.scrollY;
+  if (window.scrollY >= summaryOriginalTop) {
+    summarySpacer.style.height = `${getSummaryFlowHeight()}px`;
+    summarySpacer.hidden = false;
+    summaryCards.classList.add('summary-pinned');
+    summaryPinned = true;
+  }
+}
+
+window.addEventListener('scroll', updateSummaryDock, { passive: true });
+window.addEventListener('resize', () => window.requestAnimationFrame(updateSummaryDock));
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();

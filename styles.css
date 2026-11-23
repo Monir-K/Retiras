@@ -351,10 +351,22 @@ textarea:focus {
 }
 
 .sticky-summary {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 20;
   padding: 10px 0 12px;
+  background: transparent;
+}
+
+.summary-pinned {
+  position: fixed !important;
+  top: env(safe-area-inset-top, 0px);
+  left: 50%;
+  width: min(calc(100% - 36px), 1064px);
+  max-width: 1064px;
+  margin: 0;
+  padding: 8px 0 12px;
+  transform: translateX(-50%);
+  z-index: 100;
   background: transparent;
 }
 
@@ -488,6 +500,11 @@ tbody tr:hover {
 
   .sticky-summary {
     margin: 0 -8px 16px;
+    padding: 8px;
+  }
+
+  .summary-pinned {
+    width: calc(100% - 24px);
     padding: 8px;
   }
 
@@ -760,5 +777,17 @@ tbody tr:hover {
   body.mobile-print-layout .sticky-summary {
     position: static;
     backdrop-filter: none;
+  }
+
+  body.mobile-print-layout #summarySpacer {
+    display: none !important;
+  }
+
+  body.mobile-print-layout .summary-pinned {
+    position: static !important;
+    left: auto;
+    width: auto;
+    max-width: none;
+    transform: none;
   }
 }
